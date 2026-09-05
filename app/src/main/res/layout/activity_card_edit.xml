@@ -58,6 +58,15 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp" />
 
+        <Button
+            android:id="@+id/btnScan"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="@color/colorAccent"
+            android:text="Scan card (auto-detect type)"
+            android:textColor="@color/white" />
+
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

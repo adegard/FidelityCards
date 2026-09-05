@@ -3,6 +3,7 @@ package com.example.fidelitycards.ui
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -12,6 +13,8 @@ import com.example.fidelitycards.R
 import com.example.fidelitycards.data.CardStore
 import com.example.fidelitycards.data.FidelityCard
 import com.example.fidelitycards.databinding.ActivityCardEditBinding
+import com.google.zxing.client.android.Intents
+import com.journeyapps.barcodescanner.CaptureActivity
 import java.io.File
 
 class CardEditActivity : AppCompatActivity() {
@@ -40,6 +43,19 @@ class CardEditActivity : AppCompatActivity() {
         if (uri != null) backUri = uri
     }
 
+    private val scanLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val text = result.data?.getStringExtra(Intents.Scan.RESULT)
+            val format = result.data?.getStringExtra(Intents.Scan.RESULT_FORMAT)
+            if (!text.isNullOrBlank()) {
+                binding.editCardId.setText(text)
+                if (format != null) selectBarcodeType(format)
+                binding.btnScan.visibility = View.GONE
+                Toast.makeText(this, "Detected: $format", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityCardEditBinding.inflate(layoutInflater)
@@ -66,11 +82,32 @@ class CardEditActivity : AppCompatActivity() {
             if (idx >= 0) binding.spinnerBarcode.setSelection(idx)
         }
 
+        // Pre-fill when opened right after a scan from the home screen
+        intent.getStringExtra("prefillCardId")?.let { id ->
+            binding.editCardId.setText(id)
+            selectBarcodeType(intent.getStringExtra("prefillFormat"))
+        }
+
+        binding.btnScan.setOnClickListener { startScan() }
         binding.btnPickIcon.setOnClickListener { pickIcon.launch("image/*") }
         binding.btnPickFront.setOnClickListener { pickFront.launch("image/*") }
         binding.btnPickBack.setOnClickListener { pickBack.launch("image/*") }
 
         binding.btnSave.setOnClickListener { save() }
+    }
+
+    private fun selectBarcodeType(format: String?) {
+        if (format.isNullOrBlank()) return
+        val idx = barcodeTypes.indexOfFirst { it.equals(format.trim(), ignoreCase = true) }
+        if (idx >= 0) binding.spinnerBarcode.setSelection(idx)
+    }
+
+    private fun startScan() {
+        try {
+            scanLauncher.launch(Intent(this, CaptureActivity::class.java))
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not open camera: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun save() {

@@ -1,7 +1,9 @@
 package com.example.fidelitycards.data
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.MultiFormatWriter
@@ -11,9 +13,15 @@ import java.util.EnumMap
 
 object BarcodeRenderer {
 
-    fun formatFor(type: String, oid: String): BarcodeFormat? {
+    private const val QR_QUIET_ZONE_MODULES = 4
+    private const val LINEAR_QUIET_ZONE_PX = 12
+
+    private val blackPaint = Paint().apply { color = Color.BLACK }
+    private val whitePaint = Paint().apply { color = Color.WHITE }
+
+    fun formatFor(type: String, content: String): BarcodeFormat? {
         val t = type.trim().uppercase()
-        val id = oid.trim().uppercase()
+        val id = content.trim().uppercase()
         return when {
             t == "QR_CODE" -> BarcodeFormat.QR_CODE
             t == "DATA_MATRIX" -> BarcodeFormat.DATA_MATRIX
@@ -27,14 +35,13 @@ object BarcodeRenderer {
             t == "CODE_93" -> BarcodeFormat.CODE_93
             t == "ITF" || t == "INTERLEAVED_2_OF_5" -> BarcodeFormat.ITF
             t == "CODABAR" -> BarcodeFormat.CODABAR
-            // default
             t.isNotEmpty() -> BarcodeFormat.CODE_128
             else -> null
         }
     }
 
-    /** Generate a barcode bitmap with white background and black bars.
-     *  width/height in pixels. QR codes are filled to square. */
+    /** Generate a barcode bitmap with clean white background and sharp black marks.
+     *  QR codes are rendered square with a proper quiet zone. */
     fun generate(
         content: String,
         type: String,
@@ -43,32 +50,65 @@ object BarcodeRenderer {
     ): Bitmap? {
         val barcodeFormat = formatFor(type, content) ?: return null
         return try {
-            val hints = EnumMap<EncodeHintType, Any>(EncodeHintType::class.java)
-            hints[EncodeHintType.MARGIN] = 1
-            val matrix: BitMatrix = when (barcodeFormat) {
-                BarcodeFormat.QR_CODE -> {
-                    QRCodeWriter().encode(content, barcodeFormat, 0, 0, hints)
-                }
-                else -> {
-                    MultiFormatWriter().encode(content, barcodeFormat, width, height, hints)
-                }
+            if (barcodeFormat == BarcodeFormat.QR_CODE) {
+                val target = minOf(maxOf(width, height), 1200).coerceAtLeast(240)
+                renderQr(content, target)
+            } else {
+                renderLinear(content, barcodeFormat, width, height)
             }
-            render(matrix)
         } catch (e: Exception) {
             null
         }
     }
 
-    private fun render(matrix: BitMatrix): Bitmap {
-        val width = maxOf(matrix.width, 1)
-        val height = maxOf(matrix.height, 1)
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
-        for (x in 0 until width) {
-            for (y in 0 until height) {
-                bitmap.setPixel(x, y, if (matrix.get(x, y)) Color.BLACK else Color.WHITE)
+    private fun hintMap(): EnumMap<EncodeHintType, Any> {
+        val hints = EnumMap<EncodeHintType, Any>(EncodeHintType::class.java)
+        hints[EncodeHintType.MARGIN] = 2
+        return hints
+    }
+
+    /** Render a QR code as crisp solid modules at integer scale with a quiet zone. */
+    private fun renderQr(content: String, targetSize: Int): Bitmap {
+        val hints = EnumMap<EncodeHintType, Any>(EncodeHintType::class.java)
+        hints[EncodeHintType.MARGIN] = 0 // quiet zone added manually below
+        val matrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, 0, 0, hints)
+
+        val modules = matrix.width
+        val scale = maxOf(1, targetSize / modules)
+        val body = modules * scale
+        val quiet = QR_QUIET_ZONE_MODULES * scale
+        val size = body + quiet * 2
+
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        canvas.drawColor(Color.WHITE)
+        for (y in 0 until modules) {
+            val top = (quiet + y * scale).toFloat()
+            val bottom = top + scale
+            for (x in 0 until modules) {
+                if (matrix.get(x, y)) {
+                    val left = (quiet + x * scale).toFloat()
+                    canvas.drawRect(left, top, left + scale, bottom, blackPaint)
+                }
             }
         }
-        return bitmap
+        return bmp
+    }
+
+    /** Render 1D / other barcodes with a clean white background. */
+    private fun renderLinear(content: String, format: BarcodeFormat, width: Int, height: Int): Bitmap {
+        val matrix = MultiFormatWriter().encode(content, format, width, height, hintMap())
+        val w = matrix.width
+        val h = matrix.height
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        canvas.drawColor(Color.WHITE)
+        for (y in 0 until h) {
+            for (x in 0 until w) {
+                if (matrix.get(x, y)) bmp.setPixel(x, y, Color.BLACK)
+            }
+        }
+        return bmp
     }
 
     fun displayName(type: String): String {

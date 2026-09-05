@@ -3,6 +3,7 @@ package com.example.fidelitycards.ui
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -10,12 +11,27 @@ import com.example.fidelitycards.R
 import com.example.fidelitycards.data.CardStore
 import com.example.fidelitycards.data.FidelityCard
 import com.example.fidelitycards.databinding.ActivityMainBinding
+import com.google.zxing.client.android.Intents
+import com.journeyapps.barcodescanner.CaptureActivity
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var store: CardStore
     private lateinit var adapter: CardAdapter
+
+    private val scanLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val text = result.data?.getStringExtra(Intents.Scan.RESULT)
+            val format = result.data?.getStringExtra(Intents.Scan.RESULT_FORMAT)
+            if (!text.isNullOrBlank()) {
+                val i = Intent(this, CardEditActivity::class.java)
+                i.putExtra("prefillCardId", text)
+                i.putExtra("prefillFormat", format)
+                startActivity(i)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,6 +43,10 @@ class MainActivity : AppCompatActivity() {
         binding.toolbar.inflateMenu(R.menu.main_menu)
         binding.toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
+                R.id.action_scan -> {
+                    startScan()
+                    true
+                }
                 R.id.action_import -> {
                     startActivity(Intent(this, ImportActivity::class.java))
                     true
@@ -62,6 +82,14 @@ class MainActivity : AppCompatActivity() {
         adapter.submit(store.getAll().sortedWith(compareBy { it.store.lowercase() }))
         binding.emptyView.visibility =
             if (store.count() == 0) android.view.View.VISIBLE else android.view.View.GONE
+    }
+
+    private fun startScan() {
+        try {
+            scanLauncher.launch(Intent(this, CaptureActivity::class.java))
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not open camera: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun openDetail(card: FidelityCard) {
