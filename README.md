@@ -12,12 +12,6 @@ An Android app in Kotlin for managing your loyalty / fidelity cards: add, edit, 
 - **Export to Catima backup** (`.zip`): produces a `catima.csv` plus images, re-importable in Catima.
 - **Light & dark theme** support.
 
-## Screenshots
-
-| Main list | Card detail |
-|-----------|-------------|
-| ![Main screen](screenshots/app.png) | |
-
 ## Requirements
 
 - Android 7.0 (API 24) or newer
