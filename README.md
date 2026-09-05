@@ -1,6 +1,6 @@
 # Fidelity Cards
 
-An Android app in Kotlin for managing your loyalty / fidelity cards: add, edit, delete, and import/export cards from [Catima](https://catima.app) backups.
+An Android app in Kotlin for managing your loyalty / fidelity cards: add, edit, delete, and import/export cards compatible with [Catima](https://catima.app) backups.
 
 ![App screenshot](screenshots/app.png)
 
@@ -24,13 +24,13 @@ An Android app in Kotlin for managing your loyalty / fidelity cards: add, edit, 
 
 ## Usage
 
-### Import a Catima backup
+### Import a backup
 
 1. Tap the **Import** icon in the top bar.
 2. Pick your `.zip` backup (e.g. `catima (1).zip` from `Download/`).
 3. Cards and their images are added automatically.
 
-### Export to Catima
+### Export
 
 1. Tap the **Export** icon in the top bar.
 2. Choose a destination and name (e.g. `catima_backup.zip`).
