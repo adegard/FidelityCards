@@ -67,7 +67,18 @@ class CardDetailActivity : AppCompatActivity() {
             "No barcode"
 
         if (card.hasBarcode) {
-            val bmp = BarcodeRenderer.generate(card.cardId, card.barcodeType, 900, 350)
+            val isQr = card.barcodeType.equals("QR_CODE", ignoreCase = true)
+            binding.barcodeImage.adjustViewBounds = isQr
+            binding.barcodeImage.scaleType =
+                if (isQr) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_XY
+            val widthPx = resources.displayMetrics.widthPixels
+            val heightPx =
+                if (isQr) widthPx
+                else (widthPx * 0.40).toInt()
+            val bmp = BarcodeRenderer.renderPixel(
+                card.cardId, card.barcodeType,
+                this, widthPx, heightPx
+            )
             if (bmp != null) {
                 binding.barcodeImage.setImageBitmap(bmp)
             } else {

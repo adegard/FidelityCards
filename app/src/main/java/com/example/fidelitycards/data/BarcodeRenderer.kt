@@ -14,7 +14,6 @@ import java.util.EnumMap
 object BarcodeRenderer {
 
     private const val QR_QUIET_ZONE_MODULES = 4
-    private const val LINEAR_QUIET_ZONE_PX = 12
 
     private val blackPaint = Paint().apply { color = Color.BLACK }
     private val whitePaint = Paint().apply { color = Color.WHITE }
@@ -61,6 +60,26 @@ object BarcodeRenderer {
         }
     }
 
+    /**
+     * Render a barcode sized in physical pixels that matches the on-screen target,
+     * so the displayed bars map 1:1 to bitmap pixels (no scaling blur).
+     * widthPx/heightPx are in pixels (after density scaling).
+     */
+    fun renderPixel(
+        content: String,
+        type: String,
+        context: android.content.Context,
+        widthPx: Int,
+        heightPx: Int
+    ): Bitmap? {
+        val format = formatFor(type, content) ?: return null
+        return if (format == BarcodeFormat.QR_CODE) {
+            renderQr(content, widthPx.coerceAtLeast(240))
+        } else {
+            renderLinear(content, format, widthPx, heightPx)
+        }
+    }
+
     private fun hintMap(): EnumMap<EncodeHintType, Any> {
         val hints = EnumMap<EncodeHintType, Any>(EncodeHintType::class.java)
         hints[EncodeHintType.MARGIN] = 2
@@ -95,17 +114,29 @@ object BarcodeRenderer {
         return bmp
     }
 
-    /** Render 1D / other barcodes with a clean white background. */
+    /** Render 1D / other barcodes with a clean white background and a quiet zone.
+     *  ZXing renders the fixed-width bar pattern stretched to the requested body size
+     *  with integer bar widths; we draw it 1:1 inside a white quiet-zone frame. */
     private fun renderLinear(content: String, format: BarcodeFormat, width: Int, height: Int): Bitmap {
-        val matrix = MultiFormatWriter().encode(content, format, width, height, hintMap())
-        val w = matrix.width
-        val h = matrix.height
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val quietX = (width / 40).coerceAtLeast(12)
+        val quietY = 4
+        val bodyW = (width - quietX * 2).coerceAtLeast(8)
+        val bodyH = (height - quietY * 2).coerceAtLeast(8)
+
+        val matrix = MultiFormatWriter().encode(content, format, bodyW, bodyH, hintMap())
+
+        val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
         canvas.drawColor(Color.WHITE)
-        for (y in 0 until h) {
-            for (x in 0 until w) {
-                if (matrix.get(x, y)) bmp.setPixel(x, y, Color.BLACK)
+        val bw = matrix.width
+        val bh = matrix.height
+        for (y in 0 until bh) {
+            val top = (quietY + y).toFloat()
+            for (x in 0 until bw) {
+                if (matrix.get(x, y)) {
+                    val left = (quietX + x).toFloat()
+                    canvas.drawRect(left, top, left + 1f, top + 1f, blackPaint)
+                }
             }
         }
         return bmp
